@@ -182,6 +182,7 @@ static void help(void)
 		"  -Z --upload-size <bytes>\tSpecify the expected upload size in bytes\n"
 		"  -D --download <file>\t\tWrite firmware from <file> into device\n"
 		"  -R --reset\t\t\tIssue USB Reset signalling once we're finished\n"
+		"  -r --reset-stm32\t\tFollow STM32 DFU reset procedures to start firmware\n"
 		"  -s --dfuse-address <address>\tST DfuSe mode, specify target address for\n"
 		"\t\t\t\traw file download or upload. Not applicable for\n"
 		"\t\t\t\tDfuSe file (.dfu) downloads\n"
@@ -220,6 +221,7 @@ static struct option opts[] = {
 	{ "download", 1, 0, 'D' },
 	{ "reset", 0, 0, 'R' },
 	{ "dfuse-address", 1, 0, 's' },
+	{ "reset-stm32", 0, 0, 'r' },
 	{ 0, 0, 0, 0 }
 };
 
@@ -317,6 +319,9 @@ int main(int argc, char **argv)
 			break;
 		case 'R':
 			final_reset = 1;
+			break;
+		case 'r':
+			mode = MODE_RESET_STM32;
 			break;
 		case 's':
 			dfuse_options = optarg;
@@ -657,6 +662,36 @@ status_again:
 	case MODE_DETACH:
 		if (dfu_detach(dfu_root->dev_handle, dfu_root->interface, 1000) < 0) {
 			warnx("can't detach");
+		}
+		break;
+	case MODE_RESET_STM32:
+		//ST Application Note 3156 Documents how to reset an STM32 out of DFU mode and into firmware mode
+		//Basicly, send the target vector reset address, then a zero-length download command, then by a get status command.
+
+		printf("Resetting STM32, starting firmware at address 0x08000000...\n");
+		int set_ret = dfuse_special_command(dfu_root, 0x08000000, SET_ADDRESS);
+		if( set_ret < 0 ) {
+			printf("Error: Unable to set start address for reseting\n");
+			exit(1);
+		}
+
+		int dret = dfuse_download(dfu_root, 0, NULL, 2);
+
+		if( dret < 0 ) {
+			printf("Error: Unable to initiate zero-length download\n");
+			exit(1);
+		}
+		struct dfu_status dest_status;
+		int rr = dfu_get_status( dfu_root, &dest_status );
+		if( rr < 0 ) {
+			printf("Error: Unable to get status: %d\n", rr);
+			exit(1);
+		}
+
+		if( dest_status.bState != STATE_DFU_MANIFEST) {
+			printf("Error: Expected STM32 to be in dfuMANIFEST state after get-status command!\n");
+		} else {
+			printf("Successfully reset STM32\n");
 		}
 		break;
 	default:
