@@ -1,0 +1,6 @@
+[submodule "OpenOCD"]
+	path = OpenOCD
+	url = https://github.com/arduino/OpenOCD
+[submodule "hidapi"]
+	path = hidapi
+	url = git://github.com/signal11/hidapi.git
