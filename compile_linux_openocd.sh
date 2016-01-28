@@ -35,6 +35,7 @@ export libudev_CFLAGS="-I$UDEV_DIR/src/libudev/"
 export libudev_LIBS="-L$UDEV_DIR/src/libudev/.libs/ -ludev"
 
 cd hidapi
+./bootstrap
 export HIDAPI_DIR=`pwd`
 ./configure --enable-static --disable-shared --host=arm-linux-gnueabihf
 make clean
@@ -42,6 +43,7 @@ make -j4
 cd ..
 
 cd OpenOCD
+./bootstrap
 export LIBUSB1_CFLAGS="-I$LIBUSB_DIR/libusb/" 
 export LIBUSB1_LIBS="-L$LIBUSB_DIR/libusb/.libs/ -lusb-1.0 -lpthread" 
 export HIDAPI_CFLAGS="-I$HIDAPI_DIR/hidapi/"
