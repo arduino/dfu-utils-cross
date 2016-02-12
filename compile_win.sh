@@ -1,5 +1,6 @@
 #!/bin/bash -xe
 
+export CFLAGS="-mno-ms-bitfields"
 mkdir -p distrib/windows
 cd libusb-1.0.9
 export LIBUSB_DIR=`pwd`
