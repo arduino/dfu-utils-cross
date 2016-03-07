@@ -9,3 +9,7 @@ Prerequisites:
 mingw32-w64
 
 Some patches were added to target a bunch of problems with [Arduino101](https://www.arduino.cc/en/Main/ArduinoBoard101) upload procedure
+
+# License
+
+The bash scripts are GPLv2 licensed. Every other software used by these bash scripts has its own license. Consult them to know the terms.
