@@ -16,13 +16,13 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 mkdir -p distrib/osx
-cd libusb-1.0.9
+cd libusb-1.0.20
 export LIBUSB_DIR=`pwd`
 CC=o64-clang ./configure --host=x86_64-apple-darwin13 --enable-static --disable-shared
 make clean
-make -j4
+make
 cd ..
-cd dfu-util-0.8
+cd dfu-util-0.9
 CC=o64-clang USB_CFLAGS="-I$LIBUSB_DIR/libusb/ -framework IOKit -framework CoreFoundation" USB_LIBS="-L$LIBUSB_DIR/libusb/.libs/ -lusb-1.0" ./configure --host=x86_64-apple-darwin13
 make clean
 CFLAGS=-static make
