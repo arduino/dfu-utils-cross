@@ -669,7 +669,7 @@ status_again:
 		printf("Resetting USB to switch back to runtime mode\n");
 		ret = libusb_reset_device(dfu_root->dev_handle);
 		if (ret < 0 && ret != LIBUSB_ERROR_NOT_FOUND) {
-			errx(EX_IOERR, "error resetting after download");
+			warnx("error resetting after download");
 		}
 	}
 
