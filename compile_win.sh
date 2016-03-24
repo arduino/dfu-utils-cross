@@ -24,7 +24,7 @@ make clean
 make
 cd ..
 cd dfu-util-0.9
-USB_CFLAGS=-I$LIBUSB_DIR/libusb/ USB_LIBS="-L$LIBUSB_DIR/libusb/.libs/ -lusb-1.0" ./configure --host=i686-w64-mingw32
+CFLAGS=-static USB_CFLAGS="-I$LIBUSB_DIR/libusb/" USB_LIBS="-L$LIBUSB_DIR/libusb/.libs/ -lusb-1.0" ./configure --host=i686-w64-mingw32
 make clean
 CFLAGS=-static make
 cp src/*.exe ../distrib/windows/
