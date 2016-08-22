@@ -226,6 +226,7 @@ static struct option opts[] = {
 int main(int argc, char **argv)
 {
 	int expected_size = 0;
+	int start_position = 0;
 	unsigned int transfer_size = 0;
 	enum mode mode = MODE_NONE;
 	struct dfu_status status;
@@ -248,7 +249,7 @@ int main(int argc, char **argv)
 
 	while (1) {
 		int c, option_index = 0;
-		c = getopt_long(argc, argv, "hVvleE:d:p:c:i:a:S:t:U:D:Rs:Z:", opts,
+		c = getopt_long(argc, argv, "hVvleE:d:p:c:i:a:S:t:U:D:Rs:Z:K:", opts,
 				&option_index);
 		if (c == -1)
 			break;
@@ -306,6 +307,9 @@ int main(int argc, char **argv)
 			break;
 		case 'Z':
 			expected_size = parse_number("upload-size", optarg);
+			break;
+		case 'K':
+			start_position = parse_number("start-position", optarg);
 			break;
 		case 'D':
 			mode = MODE_DOWNLOAD;
@@ -623,7 +627,7 @@ status_again:
 			exit(1);
 		} else {
 		    if (dfuload_do_upload(dfu_root, transfer_size,
-			expected_size, fd) < 0) {
+			expected_size, start_position, fd) < 0) {
 			exit(1);
 		    }
 		}
