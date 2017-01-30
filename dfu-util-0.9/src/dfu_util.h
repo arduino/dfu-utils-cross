@@ -11,7 +11,8 @@ enum mode {
 	MODE_LIST,
 	MODE_DETACH,
 	MODE_UPLOAD,
-	MODE_DOWNLOAD
+	MODE_DOWNLOAD,
+	MODE_RESET_STM32
 };
 
 extern struct dfu_if *dfu_root;

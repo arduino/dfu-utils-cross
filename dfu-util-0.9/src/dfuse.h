@@ -32,4 +32,7 @@ int dfuse_do_upload(struct dfu_if *dif, int xfer_size, int fd,
 int dfuse_do_dnload(struct dfu_if *dif, int xfer_size, struct dfu_file *file,
 		    const char *dfuse_options);
 
+int dfuse_download(struct dfu_if *dif, const unsigned short length,
+		   unsigned char *data, unsigned short transaction);
+
 #endif /* DFUSE_H */
