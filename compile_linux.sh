@@ -18,12 +18,12 @@
 mkdir -p distrib/linux64
 cd libusb-1.0.20
 export LIBUSB_DIR=`pwd`
-./configure --enable-static --disable-shared --disable-udev
+CFLAGS="-lrt" ./configure --enable-static --disable-shared --disable-udev
 make clean
 make
 cd ..
 cd dfu-util-0.9
-USB_CFLAGS="-I$LIBUSB_DIR/libusb/" USB_LIBS="-L$LIBUSB_DIR/libusb/.libs/ -lusb-1.0 -lpthread" ./configure
+CFLAGS="-lrt" USB_CFLAGS="-I$LIBUSB_DIR/libusb/" USB_LIBS="-L$LIBUSB_DIR/libusb/.libs/ -lusb-1.0 -lpthread" ./configure
 make clean
 CFLAGS=-static make
 cp src/dfu-suffix src/dfu-prefix src/dfu-util  ../distrib/linux64/
@@ -32,12 +32,12 @@ cd ..
 mkdir -p distrib/linux32
 cd libusb-1.0.20
 export LIBUSB_DIR=`pwd`
-CFLAGS=-m32 ./configure  --enable-static --disable-shared --disable-udev
+CFLAGS="-m32 -lrt" ./configure  --enable-static --disable-shared --disable-udev
 make clean
 make
 cd ..
 cd dfu-util-0.9
-CFLAGS=-m32 USB_CFLAGS="-I$LIBUSB_DIR/libusb/" USB_LIBS="-L$LIBUSB_DIR/libusb/.libs/ -lusb-1.0 -lpthread" ./configure
+CFLAGS="-m32 -lrt" USB_CFLAGS="-I$LIBUSB_DIR/libusb/" USB_LIBS="-L$LIBUSB_DIR/libusb/.libs/ -lusb-1.0 -lpthread" ./configure
 make clean
 CFLAGS=-static make
 cp src/dfu-suffix src/dfu-prefix src/dfu-util ../distrib/linux32
