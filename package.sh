@@ -37,9 +37,7 @@ t_os_arr=($folders)
 for t_os in "${t_os_arr[@]}"
 do
 	FILENAME=dfu-util-${OUTPUT_VERSION}-${t_os}.tar.bz2
-	cd $t_os
-	tar -cjvf ../${FILENAME} *
-	cd -
+	tar -cjvf ${FILENAME} ${t_os}/
 	SIZE=`stat --printf="%s" ${FILENAME}`
 	SHASUM=`sha256sum ${FILENAME} | cut -f1 -d" "`
 	T_OS=`echo ${t_os} | awk '{print toupper($0)}'`
