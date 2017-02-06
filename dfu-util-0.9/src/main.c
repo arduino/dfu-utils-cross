@@ -707,7 +707,7 @@ status_again:
 		//ST Application Note 3156 Documents how to reset an STM32 out of DFU mode and into firmware mode
 		//Basicly, send the target vector reset address, then a zero-length download command, then by a get status command.
 
-		printf("Resetting STM32, starting firmware at address 0x%X...\n",vector_address);
+		printf("Resetting STM32, starting firmware at address 0x0%X...\n",vector_address);
 		int otto_ret = dfuse_special_command(dfu_root, vector_address, SET_ADDRESS);
 		if( otto_ret < 0 ) {
 			printf("Error: Unable to set start address for reseting\n");
