@@ -185,6 +185,7 @@ static void help(void)
 		"  -r --reset-stm32\t\tFollow STM32 DFU reset procedures to start firmware\n"
 		"  -O --otto-down\t\tDownload and reset StarOtto\n"
 		"  -s --dfuse-address <address>\tST DfuSe mode, specify target address for\n"
+		"  -f --vector-address <address>\tST Specify custom vector address for reset\n"
 		"\t\t\t\traw file download or upload. Not applicable for\n"
 		"\t\t\t\tDfuSe file (.dfu) downloads\n"
 		);
@@ -224,6 +225,7 @@ static struct option opts[] = {
 	{ "dfuse-address", 1, 0, 's' },
 	{ "reset-stm32", 0, 0, 'r' },
 	{ "otto-down", 1, 0, 'O' },
+	{ "vector-address", 1, 0, 'f' },
 	{ 0, 0, 0, 0 }
 };
 
@@ -242,6 +244,7 @@ int main(int argc, char **argv)
 	int dfuse_device = 0;
 	int fd;
 	const char *dfuse_options = NULL;
+	const char *vector_address = NULL;
 	int detach_delay = 5;
 	uint16_t runtime_vendor;
 	uint16_t runtime_product;
@@ -253,7 +256,7 @@ int main(int argc, char **argv)
 
 	while (1) {
 		int c, option_index = 0;
-		c = getopt_long(argc, argv, "hVvleE:d:p:c:i:a:S:t:U:D:Rs:Z:K:r:O:", opts,
+		c = getopt_long(argc, argv, "hVvleE:d:p:c:i:a:S:t:U:D:Rs:Z:K:r:O:f:", opts,
 				&option_index);
 		if (c == -1)
 			break;
@@ -331,6 +334,9 @@ int main(int argc, char **argv)
 			break;
 		case 's':
 			dfuse_options = optarg;
+			break;
+		case 'f':
+			vector_address = parse_number("vector-address", optarg);
 			break;
 		default:
 			help();
@@ -666,7 +672,14 @@ status_again:
 	 	}
 		break;
 	case MODE_OTTO:
-		// download part
+		// check for null reset address
+
+		if ( vector_address == NULL ) {
+			printf("\nspecify reset address with -f option !\n\n");
+			exit(0);
+		}
+
+		// MODE_DOWNLOAD part
 
 		if (((file.idVendor  != 0xffff && file.idVendor  != runtime_vendor) ||
 			 (file.idProduct != 0xffff && file.idProduct != runtime_product)) &&
@@ -687,13 +700,15 @@ status_again:
 				exit(1);
 		}
 
-		//resetting stm32 part
+		// MODE_RESET_STM32 part
+
+		printf("\nThe reset address is : 0x0%X\n\n",vector_address);
 
 		//ST Application Note 3156 Documents how to reset an STM32 out of DFU mode and into firmware mode
 		//Basicly, send the target vector reset address, then a zero-length download command, then by a get status command.
 
-		printf("Resetting STM32, starting firmware at address 0x08000000...\n");
-		int otto_ret = dfuse_special_command(dfu_root, 0x08000000, SET_ADDRESS);
+		printf("Resetting STM32, starting firmware at address 0x%X...\n",vector_address);
+		int otto_ret = dfuse_special_command(dfu_root, vector_address, SET_ADDRESS);
 		if( otto_ret < 0 ) {
 			printf("Error: Unable to set start address for reseting\n");
 			exit(1);
