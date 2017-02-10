@@ -183,9 +183,9 @@ static void help(void)
 		"  -D --download <file>\t\tWrite firmware from <file> into device\n"
 		"  -R --reset\t\t\tIssue USB Reset signalling once we're finished\n"
 		"  -r --reset-stm32\t\tFollow STM32 DFU reset procedures to start firmware\n"
-		"  -O --otto-down\t\tDownload and reset StarOtto\n"
+		"  -O --download-reset <file>\tDownload firmware to ST MCU and reset\n"
+		"  -f --vector-address <address>\tSpecify custom vector address for reset\n"
 		"  -s --dfuse-address <address>\tST DfuSe mode, specify target address for\n"
-		"  -f --vector-address <address>\tST Specify custom vector address for reset\n"
 		"\t\t\t\traw file download or upload. Not applicable for\n"
 		"\t\t\t\tDfuSe file (.dfu) downloads\n"
 		);
@@ -224,7 +224,7 @@ static struct option opts[] = {
 	{ "reset", 0, 0, 'R' },
 	{ "dfuse-address", 1, 0, 's' },
 	{ "reset-stm32", 0, 0, 'r' },
-	{ "otto-down", 1, 0, 'O' },
+	{ "download-reset", 1, 0, 'O' },
 	{ "vector-address", 1, 0, 'f' },
 	{ 0, 0, 0, 0 }
 };
@@ -329,7 +329,7 @@ int main(int argc, char **argv)
 			mode = MODE_RESET_STM32;
 			break;
 		case 'O':
-			mode = MODE_OTTO;
+			mode = MODE_DOWNLOAD_RESET;
 			file.name = optarg;
 			break;
 		case 's':
@@ -350,7 +350,7 @@ int main(int argc, char **argv)
 	}
 
 	if (mode == MODE_NONE) {
-		fprintf(stderr, "You need to specify one of -D or -U\n");
+		fprintf(stderr, "You need to specify one of -D or -O or -U\n");
 		help();
 	}
 
@@ -359,7 +359,7 @@ int main(int argc, char **argv)
 		match_config_index = -1;
 	}
 
-	if (mode == MODE_DOWNLOAD || mode == MODE_OTTO) {
+	if (mode == MODE_DOWNLOAD || mode == MODE_DOWNLOAD_RESET) {
 		dfu_load_file(&file, MAYBE_SUFFIX, MAYBE_PREFIX);
 		/* If the user didn't specify product and/or vendor IDs to match,
 		 * use any IDs from the file suffix for device matching */
@@ -671,7 +671,7 @@ status_again:
 				exit(1);
 	 	}
 		break;
-	case MODE_OTTO:
+	case MODE_DOWNLOAD_RESET:
 		// check for null reset address
 
 		if ( vector_address == NULL ) {
@@ -708,26 +708,26 @@ status_again:
 		//Basicly, send the target vector reset address, then a zero-length download command, then by a get status command.
 
 		printf("Resetting STM32, starting firmware at address 0x0%X...\n",vector_address);
-		int otto_ret = dfuse_special_command(dfu_root, vector_address, SET_ADDRESS);
-		if( otto_ret < 0 ) {
+		int downreset_ret = dfuse_special_command(dfu_root, vector_address, SET_ADDRESS);
+		if( downreset_ret < 0 ) {
 			printf("Error: Unable to set start address for reseting\n");
 			exit(1);
 		}
 
-		int otto_dret = dfuse_download(dfu_root, 0, NULL, 2);
+		int downreset_dret = dfuse_download(dfu_root, 0, NULL, 2);
 
-		if( otto_dret < 0 ) {
+		if( downreset_dret < 0 ) {
 			printf("Error: Unable to initiate zero-length download\n");
 			exit(1);
 		}
-		struct dfu_status otto_dest_status;
-		int otto_rr = dfu_get_status( dfu_root, &otto_dest_status );
-		if( otto_rr < 0 ) {
-			printf("Error: Unable to get status: %d\n", otto_rr);
+		struct dfu_status downreset_dest_status;
+		int downreset_rr = dfu_get_status( dfu_root, &downreset_dest_status );
+		if( downreset_rr < 0 ) {
+			printf("Error: Unable to get status: %d\n", downreset_rr);
 			exit(1);
 		}
 
-		if( otto_dest_status.bState != STATE_DFU_MANIFEST) {
+		if( downreset_dest_status.bState != STATE_DFU_MANIFEST) {
 			printf("Error: Expected STM32 to be in dfuMANIFEST state after get-status command!\n");
 		} else {
 			printf("Successfully reset STM32\n");
