@@ -183,7 +183,7 @@ static void help(void)
 		"  -D --download <file>\t\tWrite firmware from <file> into device\n"
 		"  -R --reset\t\t\tIssue USB Reset signalling once we're finished\n"
 		"  -r --reset-stm32\t\tFollow STM32 DFU reset procedures to start firmware\n"
-		"  -O --download-reset <file>\tDownload firmware to ST MCU and reset\n"
+		"  -O --download-reset <file>\tDownload firmware to MCU and reset\n"
 		"  -f --vector-address <address>\tSpecify custom vector address for reset\n"
 		"  -s --dfuse-address <address>\tST DfuSe mode, specify target address for\n"
 		"\t\t\t\traw file download or upload. Not applicable for\n"
