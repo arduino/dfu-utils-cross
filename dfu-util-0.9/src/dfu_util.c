@@ -305,6 +305,11 @@ char *get_path(libusb_device *dev)
 
 void probe_devices(libusb_context *ctx)
 {
+	// 2 seconds sleep before probing
+	printf("\nProbing devices...\n");
+	sleep(2);
+	printf("\n");
+
 	libusb_device **list;
 	ssize_t num_devs;
 	ssize_t i;
