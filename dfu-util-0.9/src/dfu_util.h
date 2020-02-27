@@ -2,8 +2,8 @@
 #define DFU_UTIL_H
 
 /* USB string descriptor should contain max 126 UTF-16 characters
- * but 253 would even accomodate any UTF-8 encoding */
-#define MAX_DESC_STR_LEN 253
+ * but 254 would even accommodate a UTF-8 encoding + NUL terminator */
+#define MAX_DESC_STR_LEN 254
 
 enum mode {
 	MODE_NONE,
@@ -11,9 +11,7 @@ enum mode {
 	MODE_LIST,
 	MODE_DETACH,
 	MODE_UPLOAD,
-	MODE_DOWNLOAD,
-	MODE_RESET_STM32,
-	MODE_DOWNLOAD_RESET
+	MODE_DOWNLOAD
 };
 
 extern struct dfu_if *dfu_root;

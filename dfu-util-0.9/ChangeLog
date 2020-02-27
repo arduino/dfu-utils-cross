@@ -1,3 +1,17 @@
+1.0 (unreleased)
+	o New --wait option for devices to appear (Jörg Riechardt)
+	o Support DFU_STATE_dfuMANIFEST_WAIT_RST (Jérôme Hamm)
+	o Quirks for Jabra devices (Niels Skou Olsen)
+	o Quirks for OpenPICC, SIMtrace (Harald Welte)
+	o Quirks for GD32VF103 (Thomas Hebb)
+	o Improve alternate interface index matching (Aleks Chakin)
+	o Improve Stellaris firmware detection (Aleks Chakin)
+	o dfuse: Erase all pages before programming (Geoffrey Hausheer)
+	o dfuse: New "will-reset" option (Ievgenii Meshcheriakov)
+	o dfuse: Workaround for Black Magic Probe issue
+	o dfuse-pack.py: Python 3 compatibility (Michael Everitt)
+	o dfuse-pack.py: S19 and ihex support (Thilo Cestonaro)
+
 0.9:
 	o Reimplemented USBPATH support (Stefan Zehl)
 	o Better parsing of numeric arguments (Timo Poikola)

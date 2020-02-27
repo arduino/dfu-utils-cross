@@ -4,6 +4,7 @@
  * Written by Harald Welte <laforge@openmoko.org>
  * Copyright 2007-2008 by OpenMoko, Inc.
  * Copyright 2013 Hans Petter Selasky <hps@bitfrost.no>
+ * Copyright 2016-2019 Tormod Volden <debian.tormod@gmail.com>
  *
  * Based on existing code of dfu-programmer-0.4
  *
@@ -69,6 +70,87 @@ static int find_descriptor(const uint8_t *desc_list, int list_len,
 		p += (int) desc_list[p];
 	}
 	return -1;
+}
+
+/*
+ * Get a string descriptor that's UTF-8 (or ASCII) encoded instead
+ * of UTF-16 encoded like the USB specification mandates. Some
+ * devices, like the GD32VF103, both violate the spec in this way
+ * and store important information in the serial number field. This
+ * function does NOT append a NUL terminator to its buffer, so you
+ * must use the returned length to ensure you stay within bounds.
+ */
+static int get_utf8_string_descriptor(libusb_device_handle *devh,
+    uint8_t desc_index, unsigned char *data, int length)
+{
+	unsigned char tbuf[255];
+	uint16_t langid;
+	int r, outlen;
+
+	/* get the language IDs and pick the first one */
+	r = libusb_get_string_descriptor(devh, 0, 0, tbuf, sizeof(tbuf));
+	if (r < 0) {
+		warnx("Failed to retrieve language identifiers");
+		return r;
+	}
+	if (r < 4 || tbuf[0] < 4 || tbuf[1] != LIBUSB_DT_STRING) {		/* must have at least one ID */
+		warnx("Broken LANGID string descriptor");
+		return -1;
+	}
+	langid = tbuf[2] | (tbuf[3] << 8);
+
+	r = libusb_get_string_descriptor(devh, desc_index, langid, tbuf,
+					 sizeof(tbuf));
+	if (r < 0) {
+		warnx("Failed to retrieve string descriptor %d", desc_index);
+		return r;
+	}
+	if (r < 2 || tbuf[0] < 2) {
+		warnx("String descriptor %d too short", desc_index);
+		return -1;
+	}
+	if (tbuf[1] != LIBUSB_DT_STRING) {	/* sanity check */
+		warnx("Malformed string descriptor %d, type = 0x%02x", desc_index, tbuf[1]);
+		return -1;
+	}
+	if (tbuf[0] > r) {	/* if short read,           */
+		warnx("Patching string descriptor %d length (was %d, received %d)", desc_index, tbuf[0], r);
+		tbuf[0] = r;	/* fix up descriptor length */
+	}
+
+	outlen = tbuf[0] - 2;
+	if (length < outlen)
+		outlen = length;
+
+	memcpy(data, tbuf + 2, outlen);
+
+	return outlen;
+}
+
+/*
+ * Similar to libusb_get_string_descriptor_ascii but will allow
+ * truncated descriptors (descriptor length mismatch) seen on
+ * e.g. the STM32F427 ROM bootloader.
+ */
+static int get_string_descriptor_ascii(libusb_device_handle *devh,
+    uint8_t desc_index, unsigned char *data, int length)
+{
+	unsigned char buf[255];
+	int r, di, si;
+
+	r = get_utf8_string_descriptor(devh, desc_index, buf, sizeof(buf));
+	if (r < 0)
+		return r;
+
+	/* convert from 16-bit unicode to ascii string */
+	for (di = 0, si = 0; si + 1 < r && di < length; si += 2) {
+		if (buf[si + 1])	/* high byte of unicode char */
+			data[di++] = '?';
+		else
+			data[di++] = buf[si];
+	}
+	data[di] = '\0';
+	return di;
 }
 
 static void probe_configuration(libusb_device *dev, struct libusb_device_descriptor *desc)
@@ -183,6 +265,10 @@ found_dfu:
 			for (alt_idx = 0;
 			     alt_idx < uif->num_altsetting; alt_idx++) {
 				int dfu_mode;
+				uint16_t quirks;
+
+				quirks = get_quirks(desc->idVendor,
+				    desc->idProduct, desc->bcdDevice);
 
 				intf = &uif->altsetting[alt_idx];
 
@@ -199,8 +285,16 @@ found_dfu:
 				if (desc->idVendor == 0x1fc9 && desc->idProduct == 0x000c && intf->bInterfaceProtocol == 1)
 					dfu_mode = 1;
 
+				/*
+				 * Old Jabra devices may have bInterfaceProtocol 0 instead of 2.
+				 * Also runtime PID and DFU pid are the same.
+				 * In DFU mode, the configuration descriptor has only 1 interface.
+				 */
+				if (desc->idVendor == 0x0b0e && intf->bInterfaceProtocol == 0 && cfg->bNumInterfaces == 1)
+					dfu_mode = 1;
+
 				if (dfu_mode &&
-				    match_iface_alt_index > -1 && match_iface_alt_index != alt_idx)
+				    match_iface_alt_index > -1 && match_iface_alt_index != intf->bAlternateSetting)
 					continue;
 
 				if (dfu_mode) {
@@ -220,17 +314,25 @@ found_dfu:
 					break;
 				}
 				if (intf->iInterface != 0)
-					ret = libusb_get_string_descriptor_ascii(devh,
+					ret = get_string_descriptor_ascii(devh,
 					    intf->iInterface, (void *)alt_name, MAX_DESC_STR_LEN);
 				else
 					ret = -1;
 				if (ret < 1)
 					strcpy(alt_name, "UNKNOWN");
-				if (desc->iSerialNumber != 0)
-					ret = libusb_get_string_descriptor_ascii(devh,
-					    desc->iSerialNumber, (void *)serial_name, MAX_DESC_STR_LEN);
-				else
+				if (desc->iSerialNumber != 0) {
+					if (quirks & QUIRK_UTF8_SERIAL) {
+						ret = get_utf8_string_descriptor(devh, desc->iSerialNumber,
+						    (void *)serial_name, MAX_DESC_STR_LEN - 1);
+						if (ret >= 0)
+							serial_name[ret] = '\0';
+					} else {
+						ret = get_string_descriptor_ascii(devh, desc->iSerialNumber,
+						    (void *)serial_name, MAX_DESC_STR_LEN);
+					}
+				} else {
 					ret = -1;
+				}
 				if (ret < 1)
 					strcpy(serial_name, "UNKNOWN");
 				libusb_close(devh);
@@ -253,8 +355,7 @@ found_dfu:
 
 				pdfu->func_dfu = func_dfu;
 				pdfu->dev = libusb_ref_device(dev);
-				pdfu->quirks = get_quirks(desc->idVendor,
-				    desc->idProduct, desc->bcdDevice);
+				pdfu->quirks = quirks;
 				pdfu->vendor = desc->idVendor;
 				pdfu->product = desc->idProduct;
 				pdfu->bcdDevice = desc->bcdDevice;
@@ -291,6 +392,7 @@ char path_buf[MAX_PATH_LEN];
 
 char *get_path(libusb_device *dev)
 {
+#if (defined(LIBUSB_API_VERSION) && LIBUSB_API_VERSION >= 0x01000102) || (defined(LIBUSBX_API_VERSION) && LIBUSBX_API_VERSION >= 0x01000102)
 	uint8_t path[8];
 	int r,j;
 	r = libusb_get_port_numbers(dev, path, sizeof(path));
@@ -301,6 +403,11 @@ char *get_path(libusb_device *dev)
 		};
 	}
 	return path_buf;
+#else
+# warning "libusb too old - building without USB path support!"
+	(void)dev;
+	return NULL;
+#endif
 }
 
 void probe_devices(libusb_context *ctx)

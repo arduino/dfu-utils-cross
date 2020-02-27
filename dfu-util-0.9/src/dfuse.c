@@ -5,7 +5,7 @@
  * as per the DfuSe 1.1a specification (ST documents AN3156, AN2606)
  * The DfuSe file format is described in ST document UM0391.
  *
- * Copyright 2010-2014 Tormod Volden <debian.tormod@gmail.com>
+ * Copyright 2010-2018 Tormod Volden <debian.tormod@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@
 #include "dfu_file.h"
 #include "dfuse.h"
 #include "dfuse_mem.h"
+#include "quirks.h"
 
 #define DFU_TIMEOUT 5000
 
@@ -40,11 +41,13 @@ extern int verbose;
 static unsigned int last_erased_page = 1; /* non-aligned value, won't match */
 static struct memsegment *mem_layout;
 static unsigned int dfuse_address = 0;
+static unsigned int dfuse_address_present = 0;
 static unsigned int dfuse_length = 0;
 static int dfuse_force = 0;
 static int dfuse_leave = 0;
 static int dfuse_unprotect = 0;
 static int dfuse_mass_erase = 0;
+static int dfuse_will_reset = 0;
 
 unsigned int quad2uint(unsigned char *p)
 {
@@ -66,6 +69,7 @@ void dfuse_parse_options(const char *options)
 		number = strtoul(options, &end, 0);
 		if (end == endword) {
 			dfuse_address = number;
+			dfuse_address_present = 1;
 		} else {
 			errx(EX_IOERR, "Invalid dfuse address: %s", options);
 		}
@@ -98,6 +102,11 @@ void dfuse_parse_options(const char *options)
 		}
 		if (!strncmp(options, "mass-erase", endword - options)) {
 			dfuse_mass_erase = 1;
+			options += 10;
+			continue;
+		}
+		if (!strncmp(options, "will-reset", endword - options)) {
+			dfuse_will_reset = 1;
 			options += 10;
 			continue;
 		}
@@ -171,6 +180,7 @@ int dfuse_special_command(struct dfu_if *dif, unsigned int address,
 	int ret;
 	struct dfu_status dst;
 	int firstpoll = 1;
+	int zerotimeouts = 0;
 
 	if (command == ERASE_PAGE) {
 		struct memsegment *segment;
@@ -241,6 +251,13 @@ int dfuse_special_command(struct dfu_if *dif, unsigned int address,
 		milli_sleep(dst.bwPollTimeout);
 		if (command == READ_UNPROTECT)
 			return ret;
+		/* Workaround for e.g. Black Magic Probe getting stuck */
+		if (dst.bwPollTimeout == 0) {
+			if (++zerotimeouts == 100)
+				errx(EX_IOERR, "Device stuck after special command request");
+		} else {
+			zerotimeouts = 0;
+		}
 	} while (dst.bState == DFU_STATE_dfuDNBUSY);
 
 	if (dst.bStatus != DFU_STATUS_OK) {
@@ -273,7 +290,8 @@ int dfuse_dnload_chunk(struct dfu_if *dif, unsigned char *data, int size,
 		milli_sleep(dst.bwPollTimeout);
 	} while (dst.bState != DFU_STATE_dfuDNLOAD_IDLE &&
 		 dst.bState != DFU_STATE_dfuERROR &&
-		 dst.bState != DFU_STATE_dfuMANIFEST);
+		 dst.bState != DFU_STATE_dfuMANIFEST &&
+		 !(dfuse_will_reset && (dst.bState == DFU_STATE_dfuDNBUSY)));
 
 	if (dst.bState == DFU_STATE_dfuMANIFEST)
 			printf("Transitioning to dfuMANIFEST state\n");
@@ -303,12 +321,14 @@ int dfuse_do_upload(struct dfu_if *dif, int xfer_size, int fd,
 		dfuse_parse_options(dfuse_options);
 	if (dfuse_length)
 		upload_limit = dfuse_length;
-	if (dfuse_address) {
+	if (dfuse_address_present) {
 		struct memsegment *segment;
 
 		mem_layout = parse_memory_layout((char *)dif->alt_name);
 		if (!mem_layout)
 			errx(EX_IOERR, "Failed to parse memory layout");
+		if (dif->quirks & QUIRK_DFUSE_LAYOUT)
+			fixup_dfuse_layout(dif, &mem_layout);
 
 		segment = find_segment(mem_layout, dfuse_address);
 		if (!dfuse_force &&
@@ -317,9 +337,15 @@ int dfuse_do_upload(struct dfu_if *dif, int xfer_size, int fd,
 				dfuse_address);
 
 		if (!upload_limit) {
-			upload_limit = segment->end - dfuse_address + 1;
-			printf("Limiting upload to end of memory segment, "
-			       "%i bytes\n", upload_limit);
+			if (segment) {
+				upload_limit = segment->end - dfuse_address + 1;
+				printf("Limiting upload to end of memory segment, "
+				       "%i bytes\n", upload_limit);
+			} else {
+				/* unknown segment - i.e. "force" has been used */
+				upload_limit = 0x4000;
+				printf("Limiting upload to %i bytes\n", upload_limit);
+			}
 		}
 		dfuse_special_command(dif, dfuse_address, SET_ADDRESS);
 		dfu_abort_to_idle(dif);
@@ -387,13 +413,15 @@ int dfuse_dnload_element(struct dfu_if *dif, unsigned int dwElementAddress,
 	/* Check at least that we can write to the last address */
 	segment =
 	    find_segment(mem_layout, dwElementAddress + dwElementSize - 1);
-	if (!segment || !(segment->memtype & DFUSE_WRITEABLE)) {
+	if (!dfuse_force &&
+            (!segment || !(segment->memtype & DFUSE_WRITEABLE))) {
 		errx(EX_IOERR, "Last page at 0x%08x is not writeable",
 			dwElementAddress + dwElementSize - 1);
 	}
 
-	dfu_progress_bar("Download", 0, 1);
+	dfu_progress_bar("Erase   ", 0, 1);
 
+	/* First pass: Erase involved pages if needed */
 	for (p = 0; p < (int)dwElementSize; p += xfer_size) {
 		int page_size;
 		unsigned int erase_address;
@@ -401,10 +429,16 @@ int dfuse_dnload_element(struct dfu_if *dif, unsigned int dwElementAddress,
 		int chunk_size = xfer_size;
 
 		segment = find_segment(mem_layout, address);
-		if (!segment || !(segment->memtype & DFUSE_WRITEABLE)) {
+		if (!dfuse_force &&
+		    (!segment || !(segment->memtype & DFUSE_WRITEABLE))) {
 			errx(EX_IOERR, "Page at 0x%08x is not writeable",
 				address);
 		}
+		/* If the location is not in the memory map we skip erasing */
+		/* since we wouldn't know the correct page size for flash erase */
+		if (!segment)
+			continue;
+
 		page_size = segment->pagesize;
 
 		/* check if this is the last chunk */
@@ -432,7 +466,19 @@ int dfuse_dnload_element(struct dfu_if *dif, unsigned int dwElementAddress,
 						      address + chunk_size - 1,
 						      ERASE_PAGE);
 			}
+			dfu_progress_bar("Erase   ", p, dwElementSize);
 		}
+	}
+	dfu_progress_bar("Download", 0, 1);
+
+	/* Second pass: Write data to (erased) pages */
+	for (p = 0; p < (int)dwElementSize; p += xfer_size) {
+		unsigned int address = dwElementAddress + p;
+		int chunk_size = xfer_size;
+
+		/* check if this is the last chunk */
+		if (p + chunk_size > (int)dwElementSize)
+			chunk_size = dwElementSize - p;
 
 		if (verbose) {
 			printf(" Download from image offset "
@@ -551,6 +597,10 @@ int dfuse_do_dfuse_dnload(struct dfu_if *dif, int xfer_size,
 			return -EINVAL;
 		}
 		bAlternateSetting = targetprefix[6];
+		if (targetprefix[7])
+			printf("Target name: %s\n", &targetprefix[11]);
+		else
+			printf("No target name\n");
 		dwNbElements = quad2uint((unsigned char *)targetprefix + 270);
 		printf("image for alternate setting %i, ", bAlternateSetting);
 		printf("(%i elements, ", dwNbElements);
@@ -610,9 +660,11 @@ int dfuse_do_dnload(struct dfu_if *dif, int xfer_size, struct dfu_file *file,
 	if (dfuse_options)
 		dfuse_parse_options(dfuse_options);
 	mem_layout = parse_memory_layout((char *)dif->alt_name);
-	if (!mem_layout) {
+	if (!mem_layout)
 		errx(EX_IOERR, "Failed to parse memory layout");
-	}
+	if (dif->quirks & QUIRK_DFUSE_LAYOUT)
+		fixup_dfuse_layout(dif, &mem_layout);
+
 	if (dfuse_unprotect) {
 		if (!dfuse_force) {
 			errx(EX_IOERR, "The read unprotect command "
@@ -631,7 +683,7 @@ int dfuse_do_dnload(struct dfu_if *dif, int xfer_size, struct dfu_file *file,
 		printf("Performing mass erase, this can take a moment\n");
 		dfuse_special_command(dif, 0, MASS_ERASE);
 	}
-	if (dfuse_address) {
+	if (dfuse_address_present) {
 		if (file->bcdDFU == 0x11a) {
 			errx(EX_IOERR, "This is a DfuSe file, not "
 				"meant for raw download");
@@ -647,7 +699,9 @@ int dfuse_do_dnload(struct dfu_if *dif, int xfer_size, struct dfu_file *file,
 	}
 	free_segment_list(mem_layout);
 
-	dfu_abort_to_idle(dif);
+	if (!dfuse_will_reset) {
+		dfu_abort_to_idle(dif);
+	}
 
 	if (dfuse_leave) {
 		dfuse_special_command(dif, dfuse_address, SET_ADDRESS);

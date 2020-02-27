@@ -30,7 +30,7 @@
 #include "dfu.h"
 #include "quirks.h"
 
-static int dfu_timeout = 1000;  /* 1 second - default */
+static int dfu_timeout = 5000;  /* 5 seconds - default */
 
 /*
  *  DFU_DETACH Request (DFU Spec 1.0, Section 5.1)
