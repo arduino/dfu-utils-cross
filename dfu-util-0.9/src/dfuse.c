@@ -224,6 +224,12 @@ int dfuse_special_command(struct dfu_if *dif, unsigned int address,
 		errx(EX_IOERR, "Error during special command \"%s\" download",
 			dfuse_command_name[command]);
 	}
+
+	long deadline = dst.bwPollTimeout + millis();
+	if (dst.bwPollTimeout == 0) {
+		deadline = LONG_MAX;
+	}
+
 	do {
 		ret = dfu_get_status(dif, &dst);
 		if (ret < 0) {
@@ -246,9 +252,10 @@ int dfuse_special_command(struct dfu_if *dif, unsigned int address,
 			}
 		}
 		/* wait while command is executed */
-		if (verbose)
+		if (verbose) {
 			printf("   Poll timeout %i ms\n", dst.bwPollTimeout);
-		milli_sleep(dst.bwPollTimeout);
+		}
+		//milli_sleep(dst.bwPollTimeout);
 		if (command == READ_UNPROTECT)
 			return ret;
 		/* Workaround for e.g. Black Magic Probe getting stuck */
@@ -258,7 +265,7 @@ int dfuse_special_command(struct dfu_if *dif, unsigned int address,
 		} else {
 			zerotimeouts = 0;
 		}
-	} while (dst.bState == DFU_STATE_dfuDNBUSY);
+	} while (dst.bState == DFU_STATE_dfuDNBUSY && millis() < deadline);
 
 	if (dst.bStatus != DFU_STATUS_OK) {
 		errx(EX_IOERR, "%s not correctly executed",

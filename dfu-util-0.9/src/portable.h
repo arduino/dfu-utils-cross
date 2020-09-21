@@ -16,6 +16,8 @@
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
 
+long millis();
+
 #ifdef HAVE_NANOSLEEP
 # include <time.h>
 # define milli_sleep(msec) do {\

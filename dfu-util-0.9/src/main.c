@@ -706,3 +706,16 @@ status_again:
 
 	return (0);
 }
+
+#include <time.h>
+#include <sys/time.h>
+
+long millis() {
+	//struct timespec _t;
+	//clock_gettime(CLOCK_REALTIME, &_t);
+	//return _t.tv_sec*1000 + _t.tv_nsec/1.0e6;
+	struct timeval t;
+	gettimeofday(&t, 0);
+	return t.tv_sec * INT64_C(1000) + t.tv_usec / 1000;
+}
+

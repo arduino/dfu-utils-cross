@@ -126,6 +126,8 @@ int dfuload_do_dnload(struct dfu_if *dif, int xfer_size, struct dfu_file *file)
 		bytes_sent += chunk_size;
 		buf += chunk_size;
 
+		long deadline = millis() + dst.bwPollTimeout;
+
 		do {
 			ret = dfu_get_status(dif, &dst);
 			if (ret < 0) {
@@ -134,11 +136,10 @@ int dfuload_do_dnload(struct dfu_if *dif, int xfer_size, struct dfu_file *file)
 			}
 
 			if (dst.bState == DFU_STATE_dfuDNLOAD_IDLE ||
-					dst.bState == DFU_STATE_dfuERROR)
+					dst.bState == DFU_STATE_dfuERROR || (dst.bwPollTimeout != 0 && millis() > deadline))
 				break;
 
 			/* Wait while device executes flashing */
-			milli_sleep(dst.bwPollTimeout);
 			if (verbose > 1)
 				printf("Poll timeout %i ms\n", dst.bwPollTimeout);
 
