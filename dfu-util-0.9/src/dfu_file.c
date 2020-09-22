@@ -309,9 +309,11 @@ checked:
 				warnx("%s", reason);
 				errx(EX_IOERR, "Valid DFU suffix needed");
 			} else if (check_suffix == MAYBE_SUFFIX) {
-				warnx("%s", reason);
-				warnx("A valid DFU suffix will be required in "
-				      "a future dfu-util release!!!");
+				if (verbose) {
+					warnx("%s", reason);
+					warnx("A valid DFU suffix will be required in "
+					      "a future dfu-util release!!!");
+				}
 			}
 		} else {
 			if (check_suffix == NO_SUFFIX) {
