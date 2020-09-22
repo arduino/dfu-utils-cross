@@ -179,7 +179,7 @@ get_status:
 		dfu_state_to_string(dst.bState), dst.bStatus,
 		dfu_status_to_string(dst.bStatus));
 
-	milli_sleep(dst.bwPollTimeout);
+	//milli_sleep(dst.bwPollTimeout);
 
 	/* FIXME: deal correctly with ManifestationTolerant=0 / WillDetach bits */
 	switch (dst.bState) {

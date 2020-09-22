@@ -288,17 +288,22 @@ int dfuse_dnload_chunk(struct dfu_if *dif, unsigned char *data, int size,
 	}
 	bytes_sent = ret;
 
+	long deadline = dst.bwPollTimeout + millis();
+	if (dst.bwPollTimeout == 0) {
+		deadline = LONG_MAX;
+	}
+
 	do {
 		ret = dfu_get_status(dif, &dst);
 		if (ret < 0) {
 			errx(EX_IOERR, "Error during download get_status");
 			return ret;
 		}
-		milli_sleep(dst.bwPollTimeout);
+		//milli_sleep(dst.bwPollTimeout);
 	} while (dst.bState != DFU_STATE_dfuDNLOAD_IDLE &&
 		 dst.bState != DFU_STATE_dfuERROR &&
 		 dst.bState != DFU_STATE_dfuMANIFEST &&
-		 !(dfuse_will_reset && (dst.bState == DFU_STATE_dfuDNBUSY)));
+		 !(dfuse_will_reset && (dst.bState == DFU_STATE_dfuDNBUSY)) && millis() < deadline);
 
 	if (dst.bState == DFU_STATE_dfuMANIFEST)
 			printf("Transitioning to dfuMANIFEST state\n");
