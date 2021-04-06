@@ -5,9 +5,9 @@
 	path = hidapi
 	url = git://github.com/signal11/hidapi.git
 [submodule "libusb"]
-        path = libusb
-        url = git://github.com:libusb/libusb.git
+	path = libusb
+	url = git://github.com/libusb/libusb.git
 [submodule "dfu-util"]
-        path = dfu-util
-        url = git://git.code.sf.net/p/dfu-util/dfu-util
+	path = dfu-util
+	url = git://git.code.sf.net/p/dfu-util/dfu-util
 
