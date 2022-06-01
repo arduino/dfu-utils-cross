@@ -3,10 +3,10 @@
 	url = https://github.com/arduino/OpenOCD
 [submodule "hidapi"]
 	path = hidapi
-	url = git://github.com/signal11/hidapi.git
+	url = https://github.com/signal11/hidapi
 [submodule "libusb"]
 	path = libusb
-	url = git://github.com/libusb/libusb.git
+	url = https://github.com/libusb/libusb
 [submodule "dfu-util"]
 	path = dfu-util
 	url = git://git.code.sf.net/p/dfu-util/dfu-util
