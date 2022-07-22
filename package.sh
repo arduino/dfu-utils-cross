@@ -15,14 +15,14 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-OUTPUT_VERSION=0.11.0-arduino1
+OUTPUT_VERSION=0.11.0-arduino2
 
 export OS=`uname -o || uname`
 
 #add osxcross, mingw and arm-linux-gnueabihf paths to PATH
 
 cd libusb && ./bootstrap.sh && cd ..
-cd dfu-util && ./autogen.sh && cd ..
+cd dfu-util && ./autogen.sh && patch -p1 < ../silence_warnings.patch && cd ..
 
 ./compile_win.sh
 ./compile_linux.sh

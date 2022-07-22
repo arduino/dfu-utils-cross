@@ -1,0 +1,28 @@
+diff --git a/src/dfu_file.c b/src/dfu_file.c
+index dbe7374..3f61b11 100644
+--- a/src/dfu_file.c
++++ b/src/dfu_file.c
+@@ -334,8 +334,8 @@ checked:
+ 				warnx("%s", reason);
+ 				errx(EX_DATAERR, "Valid DFU suffix needed");
+ 			} else if (check_suffix == MAYBE_SUFFIX) {
+-				warnx("Warning: %s", reason);
+-				warnx("A valid DFU suffix will be required in a future dfu-util release");
++				//warnx("Warning: %s", reason);
++				//warnx("A valid DFU suffix will be required in a future dfu-util release");
+ 			}
+ 		} else {
+ 			if (check_suffix == NO_SUFFIX) {
+diff --git a/src/main.c b/src/main.c
+index 962c2a1..25812b4 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -781,6 +781,8 @@ status_again:
+ 		if (ret < 0 && ret != LIBUSB_ERROR_NOT_FOUND) {
+ 			warnx("error resetting after download: %s", libusb_error_name(ret));
+ 			ret = EX_IOERR;
++		} else {
++			ret = EX_OK;
+ 		}
+ 	}
+ 
