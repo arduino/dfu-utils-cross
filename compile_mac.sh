@@ -25,7 +25,7 @@ make clean
 make
 cd ..
 cd dfu-util
-CC=o64-clang USB_CFLAGS="-I$LIBUSB_DIR/libusb/ -framework IOKit -framework CoreFoundation" USB_LIBS="-L$LIBUSB_DIR/libusb/.libs/ -lusb-1.0 -lobjc" ./configure --host=$platform
+CC=o64-clang USB_CFLAGS="-mmacosx-version-min=10.12 -I$LIBUSB_DIR/libusb/" USB_LIBS="-L$LIBUSB_DIR/libusb/.libs/ -lusb-1.0 -lobjc -framework IOKit -framework CoreFoundation -framework Security" ./configure --host=$platform
 make clean
 CFLAGS=-static make V=s
 cp src/dfu-suffix src/dfu-prefix src/dfu-util ../distrib/osx/
