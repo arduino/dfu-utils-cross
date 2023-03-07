@@ -12,4 +12,4 @@ Some patches were added to target a bunch of problems with [Arduino101](https://
 
 # License
 
-The bash scripts are GPLv2 licensed. Every other software used by these bash scripts has its own license. Consult them to know the terms.
+The bash scripts are GPLv3 licensed. Every other software used by these bash scripts has its own license. Consult them to know the terms.
