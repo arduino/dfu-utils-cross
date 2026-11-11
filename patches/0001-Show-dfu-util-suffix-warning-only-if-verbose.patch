@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martino Facchin <m.facchin@arduino.cc>
+Date: Tue, 6 Dec 2022 16:15:31 +0100
+Subject: [PATCH 1/2] Show dfu-util suffix warning only if verbose
+
+---
+ src/dfu_file.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/dfu_file.c b/src/dfu_file.c
+index dbe7374..4ca2adc 100644
+--- a/src/dfu_file.c
++++ b/src/dfu_file.c
+@@ -333,7 +333,7 @@ checked:
+ 			if (check_suffix == NEEDS_SUFFIX) {
+ 				warnx("%s", reason);
+ 				errx(EX_DATAERR, "Valid DFU suffix needed");
+-			} else if (check_suffix == MAYBE_SUFFIX) {
++			} else if (check_suffix == MAYBE_SUFFIX && verbose) {
+ 				warnx("Warning: %s", reason);
+ 				warnx("A valid DFU suffix will be required in a future dfu-util release");
+ 			}
