@@ -1,4 +1,3 @@
-*.o
-*.lo
-*.deps*
-*.libs*
+*.swp
+*.swo
+__pycache__/

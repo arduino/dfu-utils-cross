@@ -1,0 +1,110 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martino Facchin <m.facchin@arduino.cc>
+Date: Tue, 6 Dec 2022 16:14:20 +0100
+Subject: [PATCH 2/2] Add final_detach flag to detach without USB reset
+
+Add -Q/--final-detach, which sends DFU_DETACH once finished but skips
+the USB reset that -R issues. Unlike -R, a failed detach is reported in
+the exit status.
+
+Rebased onto v0.11-18 (resolves the conflict with 4800abb), keeps -R as
+an option without an argument, and documents -Q in the usage text and
+the man page.
+---
+ doc/dfu-util.1 |  4 ++++
+ src/main.c     | 26 +++++++++++++++++---------
+ 2 files changed, 21 insertions(+), 9 deletions(-)
+
+diff --git a/doc/dfu-util.1 b/doc/dfu-util.1
+index f9f49d7..9a45ef0 100644
+--- a/doc/dfu-util.1
++++ b/doc/dfu-util.1
+@@ -172,6 +172,10 @@ is \-, the firmware is read from stdin.
+ .B "\-R, \-\-reset"
+ Issue USB reset signalling after upload or download has finished.
+ .TP
++.B "\-Q, \-\-final-detach"
++Send a DFU detach request after upload or download has finished, without
++issuing USB reset signalling.
++.TP
+ .B "\-e, \-\-detach"
+ Request that the device re-enumerate out of run-time mode and into DFU mode as
+ when uploading or downloading, but exit immediately after sending the request.
+diff --git a/src/main.c b/src/main.c
+index 54045cc..fb8cc07 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -187,6 +187,7 @@ static void help(void)
+ 		"  -Z --upload-size <bytes>\tSpecify the expected upload size in bytes\n"
+ 		"  -D --download <file>\t\tWrite firmware from <file> into device\n"
+ 		"  -R --reset\t\t\tIssue USB Reset signalling once we're finished\n"
++		"  -Q --final-detach\t\tDetach without USB Reset once we're finished\n"
+ 		"  -w --wait\t\t\tWait for device to appear\n"
+ 		"  -s --dfuse-address address<:...>\tST DfuSe mode string, specifying target\n"
+ 		"\t\t\t\taddress for raw file download or upload (not\n"
+@@ -232,6 +233,7 @@ static const struct option opts[] = {
+ 	{ "upload-size", 1, 0, 'Z' },
+ 	{ "download", 1, 0, 'D' },
+ 	{ "reset", 0, 0, 'R' },
++	{ "final-detach", 0, 0, 'Q' },
+ 	{ "dfuse-address", 1, 0, 's' },
+ 	{ "devnum",1, 0, 'n' },
+ 	{ "wait", 1, 0, 'w' },
+@@ -248,6 +250,7 @@ int main(int argc, char **argv)
+ 	struct dfu_file file;
+ 	char *end;
+ 	int final_reset = 0;
++	int final_detach = 0;
+ 	int wait_device = 0;
+ 	int ret;
+ 	int dfuse_device = 0;
+@@ -264,7 +267,7 @@ int main(int argc, char **argv)
+ 
+ 	while (1) {
+ 		int c, option_index = 0;
+-		c = getopt_long(argc, argv, "hVvleE:d:p:c:i:a:S:t:U:D:Rs:Z:wn:", opts,
++		c = getopt_long(argc, argv, "hVvleE:d:p:c:i:a:S:t:U:D:RQs:Z:wn:", opts,
+ 				&option_index);
+ 		if (c == -1)
+ 			break;
+@@ -338,6 +341,9 @@ int main(int argc, char **argv)
+ 		case 'R':
+ 			final_reset = 1;
+ 			break;
++		case 'Q':
++			final_detach = 1;
++			break;
+ 		case 's':
+ 			dfuse_options = optarg;
+ 			break;
+@@ -770,20 +776,22 @@ status_again:
+ 		break;
+ 	}
+ 
+-	if (!ret && final_reset) {
++	if (!ret && (final_reset || final_detach)) {
+ 		ret = dfu_detach(dfu_root->dev_handle, dfu_root->interface, 1000);
+ 		if (ret < 0) {
+ 			/* Even if detach failed, just carry on to leave the
+                            device in a known state */
+ 			warnx("can't detach");
+ 		}
+-		printf("Resetting USB to switch back to Run-Time mode\n");
+-		ret = libusb_reset_device(dfu_root->dev_handle);
+-		if (ret < 0 && ret != LIBUSB_ERROR_NOT_FOUND) {
+-			warnx("error resetting after download: %s", libusb_error_name(ret));
+-			ret = EX_IOERR;
+-		} else {
+-			ret = EX_OK;
++		if (final_reset) {
++			printf("Resetting USB to switch back to Run-Time mode\n");
++			ret = libusb_reset_device(dfu_root->dev_handle);
++			if (ret < 0 && ret != LIBUSB_ERROR_NOT_FOUND) {
++				warnx("error resetting after download: %s", libusb_error_name(ret));
++				ret = EX_IOERR;
++			} else {
++				ret = EX_OK;
++			}
+ 		}
+ 	}
+ 
